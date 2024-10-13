@@ -1,0 +1,64 @@
+x-service-default: &service
+  image: go-orm-test
+  init: true
+  build:
+    context: ./
+    dockerfile: ./Dockerfile
+  env_file:
+    - ./.env
+  networks:
+    - go-orm-test_network
+  volumes:
+    - ./:/go-orm-test/:delegated
+
+services:
+  go-orm-test:
+    <<: *service
+    working_dir: /go-orm-test
+    tty: true
+    command: air -c .air.toml
+    expose:
+      - '8080'
+    ports:
+      - '8089:8080'
+
+  postgresql:
+    container_name: 'go-orm-test-postgres'
+    image: postgres:14.5-alpine
+    restart: always
+    volumes:
+      - ./infrastructure/db:/docker-entrypoint-initdb.d
+      - go-orm-test-postgres-data:/var/lib/postgresql/data
+      - ./testdata:/testdata
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_DB=go-orm-test-db
+      - POSTGRES_PASSWORD=password
+    networks:
+      - go-orm-test_network
+    hostname: docker-postgres
+    ports:
+      - 5732:5432
+      
+  postgresql-test:
+    container_name: 'go-orm-test-test'
+    image: postgres:14.5-alpine
+    restart: always
+    volumes:
+      - ./testdata:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_USER=go-orm-test-user
+      - POSTGRES_DB=go-orm-test-db-test
+      - POSTGRES_PASSWORD=password
+    networks:
+      - go-orm-test_network
+    hostname: docker-postgres-test
+
+networks:
+  go-orm-test_network:
+    external: true
+
+volumes:
+  go-orm-test-postgres-data:
+    external:
+      name: go-orm-test_postgres-data
